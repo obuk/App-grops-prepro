@@ -267,6 +267,9 @@ sub prepro {
 
     }
 
+    # remove \p{InPSPC} around \p{InInsep} characters
+    s/\p{InPSPC}*(\p{InInsep}+)\p{InPSPC}*/$1/g;
+
     # to prefer input, remove \p{InPSPC} adjacent to \p{InUSPC}.
     s/\p{InPSPC}+(\p{InUSPC})/$1/g;
     s/(\p{InUSPC})\p{InPSPC}+/$1/g;

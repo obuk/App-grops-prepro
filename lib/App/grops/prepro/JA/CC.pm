@@ -66,6 +66,14 @@ sub InIVS {
 }
 
 
+sub InInsep {
+  (my $u = <<END) =~ s/[#;].*//gm; $u;
++InInseparableCharacters
++002F; \/
+END
+}
+
+
 sub InJapanese {
   return <<END;
 +InJapaneseCharacters

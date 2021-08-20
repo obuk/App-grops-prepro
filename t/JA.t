@@ -58,4 +58,9 @@ is pp0("行\nline\n"), preconv("行\nline"), "ja-\\n-we";
 is pp0("改行\n無効\n"), preconv("改行\\c\n無効"), "ja-\\n-ja";
 is pp0("改行\\c\n無効\n"), preconv("改行\\c\n無効"), "ja-\\c\\n-ja";
 
+# add / to \p{InInseparableCharacters}
+is pp1("YY/MM/DD"), preconv("YY/MM/DD"), "is1 w/w/w";
+is pp1("年/月/日"), preconv("年/月/日"), "is2 j/j/j";
+is pp1("09/12/34"), preconv("09/12/34"), "is3 n/n/n";
+
 done_testing;

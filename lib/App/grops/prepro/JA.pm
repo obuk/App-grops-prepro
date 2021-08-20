@@ -9,7 +9,7 @@ use feature qw/say/;
 use parent 'App::grops::prepro';
 
 use utf8;
-use App::grops::prepro::W3C_jlreq ':all';
+use App::grops::prepro::JA::CC ':all';
 use Class::Accessor 'antlers';
 
 sub InPUA       { "F0000 FFFFF" }
@@ -170,6 +170,7 @@ END
     eval sprintf 'sub %s { "\\x{%X}" }', $_sp, ord $c;
   }
 
+  $self;
 }
 
 
@@ -193,6 +194,14 @@ sub prepro {
       $self->fc(undef);
     }
   } elsif (/$req/) {
+
+    if (/$req\s*Sh\s+(名前|名称)\b/) {
+      $_ = join "\n",
+        ".ds section-name $1",
+        ".ds doc-section-name $1",
+        ".lf $.",
+        $_;
+    }
 
   } else {
 
@@ -307,6 +316,9 @@ sub gets {
         $_ = $line;
         last;
       }
+    } else {
+      $_ = $line;
+      last;
     }
   }
 
@@ -343,7 +355,7 @@ sub getline {
   if (defined ($_ = shift @{$self->{unget}})) {
     ;
   } elsif (defined ($_ = <>)) {
-    chomp;
+    my $newline = chomp;
 
     1 while s{$esc}{
       my $e = $&;
@@ -368,160 +380,11 @@ sub getline {
       }
     }e;
 
+    $_ .= $self->pua_char("\\c", \&InDNL) unless $newline;
+
   }
+
   $_;
-}
-
-
-=begin comment
-
-\p {InUSPC} is a user-defined property that matches spaces in the man
-page source code.  This property also includes spaces created by
-roff's escape \/, \^, \|, \h'nnn', etc., but not \n.  \n is used to
-connect multiple continuation lines.
-
-=end comment
-
-=cut
-
-sub InUSPC {
-  return <<END;
-+utf8::InSpace
--000A
-+InSPC
-END
-}
-
-sub InWestern {
-  return <<END;
-+InWesternCharacters
--InJapaneseCharacters
-END
-}
-
-
-sub InPunctuations {
-  return <<END;
-+InStarting
-+InEnding
-+InHyphens
-+InMiddleDots
-+utf8::InP
-+utf8::InS
-END
-}
-
-
-sub InStartingJ {
-  return <<END;
-+InStarting
-&InJapaneseCharacters
-END
-}
-
-
-sub InStartingW {
-  return <<END;
-+InStarting
-&InWesternCharacters
-END
-}
-
-
-sub InEndingJ {
-  return <<END;
-+InEnding
-&InJapaneseCharacters
-END
-}
-
-
-sub InEndingW {
-  return <<END;
-+InEnding
-&InWesternCharacters
-END
-}
-
-
-sub InMiddleDotsJ {
-  return <<END;
-+InMiddleDots
-&InJapaneseCharacters
-END
-}
-
-
-sub InStarting {
-  return <<END;
-+utf8::InPs
-+utf8::InPi
-END
-}
-
-
-sub InEnding {
-  return <<END;
-+utf8::InPe
-+utf8::InPf
-+InColon
-+InFullStops
-+InCommas
-+InDividingPunctuationMarks
-END
-}
-
-
-sub InJapanese {
-  return <<END;
-+InJapaneseCharacters
--InSVS
--InIVS
--InPunctuations
-END
-}
-
-
-sub InSVS { "FE00 FE0F" }
-sub InIVS { "E0100 E01EF" }
-
-
-sub InJapaneseCharacters {
-  # see $Config{privlib}/unicore/Blocks.txt
-  (my $u = <<END) =~ s/[#;].*//gm; $u;
-3000\t303F; CJK Symbols and Punctuation
-3040\t309F; Hiragana
-30A0\t30FF; Katakana
-3190\t319F; Kanbun
-31C0\t31EF; CJK Strokes
-31F0\t31FF; Katakana Phonetic Extensions
-3200\t32FF; Enclosed CJK Letters and Months
-3300\t33FF; CJK Compatibility
-3400\t4DBF; CJK Unified Ideographs Extension A
-4DC0\t4DFF; Yijing Hexagram Symbols
-4E00\t9FFF; CJK Unified Ideographs
-F900\tFAFF; CJK Compatibility Ideographs
-FE00\tFE0F; Variation Selectors
-FF00\tFFEF; Halfwidth and Fullwidth Forms
-20000\t2A6DF; CJK Unified Ideographs Extension B
-2A700\t2B73F; CJK Unified Ideographs Extension C
-2B740\t2B81F; CJK Unified Ideographs Extension D
-2B820\t2CEAF; CJK Unified Ideographs Extension E
-2CEB0\t2EBEF; CJK Unified Ideographs Extension F
-2F800\t2FA1F; CJK Compatibility Ideographs Supplement
-E0100\tE01EF; Variation Selectors Supplement
-END
-}
-
-
-sub InUnitSymbolsSimple {
-  (my $u = <<END) =~ s/[#;].*//gm; $u;
-+InUnitSymbols
--0020;	 	SPACE	quarter em width
--0028;	( 	LEFT PARENTHESIS
--0029;	) 	RIGHT PARENTHESIS
--002F;	\/ 	SOLIDUS one third em width, half-width or proportional
-END
 }
 
 1;

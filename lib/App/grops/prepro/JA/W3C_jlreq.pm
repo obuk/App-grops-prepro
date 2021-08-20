@@ -1,4 +1,4 @@
-package App::grops::prepro::W3C_jlreq;
+package App::grops::prepro::JA::W3C_jlreq;
 use 5.008001;
 use strict;
 use warnings;
@@ -9,11 +9,11 @@ our $VERSION = "0.01";
 
 =head1 NAME
 
-App::grops::prepro::W3C_jlreq - It's new $module
+App::grops::prepro::JA::W3C_jlreq - It's new $module
 
 =head1 SYNOPSIS
 
-    use App::grops::prepro::W3C_jlreq;
+    use App::grops::prepro::JA::W3C_jlreq;
 
 =cut
 
@@ -449,7 +449,7 @@ __END__
 
 =head1 DESCRIPTION
 
-App::grops::prepro::W3C_jlreq is ...
+App::grops::prepro::JA::W3C_jlreq is ...
 
 =head1 LICENSE
 

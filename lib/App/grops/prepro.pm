@@ -6,7 +6,7 @@ use warnings;
 our $VERSION = "0.01";
 
 use feature qw/say/;
-use open qw/:locale :std/;
+#use open qw/:locale :std/;
 
 use Class::Accessor 'antlers';
 use Encode;
@@ -129,18 +129,24 @@ sub init {
       );
   }
 
+  $self;
 }
 
 
 sub run {
   my $class = shift;
+  $class->new(@_)->process();
+}
 
-  my $self = $class->new();
-  while (my ($f, $x) = splice(@_, 0, 2)) {
-    $self->$f($x);
-  }
 
-  $self->init();
+sub new {
+  my $class = shift;
+  $class->SUPER::new(@_)->init();
+}
+
+
+sub process {
+  my ($self) = @_;
 
   my @prepro;
   my $troff = join '', grep defined, $ENV{GROFF_COMMAND_PREFIX}, 'troff';
@@ -165,7 +171,7 @@ sub run {
   open STDOUT, "|-", "tee", $tee or die "can't open $tee: $!" if $tee;
   $self->prepro_main if !grep $_ eq -v, @prepro;
   close STDOUT;
-  exit($? >> 8);
+  return ($? >> 8);
 }
 
 
@@ -313,6 +319,9 @@ sub gets {
     my $line = $_;
     if (defined $self->gets()) {
       $line .= "\n" . $_;
+    } else {
+      $_ = $line;
+      last;
     }
     $_ = $line;
   }

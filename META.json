@@ -61,6 +61,17 @@
       }
    },
    "release_status" : "unstable",
+   "resources" : {
+      "bugtracker" : {
+         "web" : "https://github.com/obuk/App-grops-prepro/issues"
+      },
+      "homepage" : "https://github.com/obuk/App-grops-prepro",
+      "repository" : {
+         "type" : "git",
+         "url" : "git://github.com/obuk/App-grops-prepro.git",
+         "web" : "https://github.com/obuk/App-grops-prepro"
+      }
+   },
    "version" : "0.01",
    "x_serialization_backend" : "JSON::PP version 4.02",
    "x_static_install" : 1

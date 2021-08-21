@@ -63,4 +63,12 @@ is pp1("YY/MM/DD"), preconv("YY/MM/DD"), "is1 w/w/w";
 is pp1("年/月/日"), preconv("年/月/日"), "is2 j/j/j";
 is pp1("09/12/34"), preconv("09/12/34"), "is3 n/n/n";
 
+# remove \p{InPSPC} in quotes
+is pp1("q1 'joe' we"), preconv("q1 'joe' we"), "q1 'joe' we";
+is pp1("q2 \"joe\" we"), preconv("q2 \"joe\" we"), "q2 \"joe\" we";
+is pp1("q3 `joe' we"), preconv("q3 `joe' we"), "q3 `joe' we";
+is pp1("q1 '太朗' ja"), preconv("q1 '太朗' ja"), "q1 '太朗' ja";
+is pp1("q2 \"太朗\" ja"), preconv("q2 \"太朗\" ja"), "q2 \"太朗\" ja";
+is pp1("q3 `太朗' ja"), preconv("q3 `太朗' ja"), "q3 `太朗' ja";
+
 done_testing;

@@ -6,7 +6,7 @@ use warnings;
 our $VERSION = "0.01";
 
 use feature qw/say/;
-#use open qw/:locale :std/;
+use open qw/:locale :std/;      # debug outputs
 
 use Class::Accessor 'antlers';
 use Encode;

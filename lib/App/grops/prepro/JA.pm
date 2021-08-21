@@ -267,6 +267,11 @@ sub prepro {
 
     }
 
+    # remove \p{InPSPC} in quotes
+    s/([\`\'\"])\p{InPSPC}+(.*?)\p{InPSPC}+([\'\"])/do {
+      $1.$2.$3;
+    }/eg;
+
     # remove \p{InPSPC} around \p{InInsep} characters
     s/\p{InPSPC}*(\p{InInsep}+)\p{InPSPC}*/$1/g;
 

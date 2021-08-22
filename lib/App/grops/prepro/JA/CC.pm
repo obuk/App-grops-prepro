@@ -36,8 +36,8 @@ our %EXPORT_TAGS = (all => \@EXPORT_OK);
 # user-defined props (alphabetical order)
 sub InEnding {
   return <<END;
-+utf8::InClose_Punctuation
-+utf8::InFinal_Punctuation
++utf8::IsPe
++utf8::IsPf
 +InColon
 +InFullStops
 +InCommas
@@ -126,16 +126,16 @@ sub InPunctuations {
 +InEnding
 +InHyphens
 +InMiddleDots
-+utf8::InPunctuation
-+utf8::InSymbol
++utf8::IsP
++utf8::IsS
 END
 }
 
 
 sub InStarting {
   return <<END;
-+utf8::InOpen_Punctuation
-+utf8::InInitial_Punctuation
++utf8::IsPs
++utf8::IsPi
 END
 }
 
@@ -185,7 +185,7 @@ connect multiple continuation lines.
 
 sub InUSPC {
   return <<END;
-+utf8::InSpace
++utf8::IsSpace
 -000A
 +InSPC
 END

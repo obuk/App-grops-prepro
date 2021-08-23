@@ -3,7 +3,7 @@ use 5.008001;
 use strict;
 use warnings;
 
-our $VERSION = "0.01";
+our $VERSION = "0.02";
 
 use feature qw/say/;
 use parent 'App::grops::prepro';
@@ -46,6 +46,10 @@ sub init {
   eval { require Unicode::Normalize };
 
   #$self->debug(16);
+
+  unless (defined $self->lang) {
+    $self->lang((split '::', __PACKAGE__)[-1]);
+  }
 
   unless (defined $self->mode) {
     $self->mode(m_punct | m_zwsp | m_wdsp | m_nrsp);
@@ -402,7 +406,7 @@ __END__
 
 =head1 NAME
 
-App::grops::prepro::JA - It's new $module
+App::grops::prepro::JA - groff grops prepro
 
 =head1 SYNOPSIS
 
@@ -411,7 +415,8 @@ App::grops::prepro::JA - It's new $module
 
 =head1 DESCRIPTION
 
-App::grops::prepro::JA is ...
+App::grops::prepro::JA works as a prepro when printing to ps or pdf
+devices with groff, adding spaces to Japanese text.
 
 =head1 LICENSE
 

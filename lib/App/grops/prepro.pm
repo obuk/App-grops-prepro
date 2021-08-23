@@ -3,7 +3,13 @@ use 5.008001;
 use strict;
 use warnings;
 
-our $VERSION = "0.01";
+our $VERSION = "0.02";
+
+BEGIN {
+  if (my @p5lib = split ':', $ENV{PERL5LIB}) {
+    use lib @p5lib;
+  }
+}
 
 use feature qw/say/;
 use open qw/:locale :std/;      # debug outputs
@@ -11,7 +17,7 @@ use open qw/:locale :std/;      # debug outputs
 use Class::Accessor 'antlers';
 use Encode;
 use File::Basename;
-use Getopt::Std;
+use Getopt::Long;
 use Data::Clone 'clone';
 
 sub InPUA       { "F0000 FFFFF" }
@@ -27,6 +33,7 @@ has pua_saving  => (is => 'rw');
 has end         => (is => 'rw');
 has unget       => (is => 'rw');
 has tee         => (is => 'rw');
+has lang        => (is => 'rw');
 has debug       => (is => 'rw');
 
 sub init {
@@ -153,10 +160,24 @@ sub process {
   push @prepro, shift @ARGV while @ARGV && $ARGV[0] ne $troff;
   my @troff = @ARGV;
   shift @ARGV;
-  getopts('abcivzCERUw:W:d:f:m:n:o:r:T:F:I:M:', \ my %troff);
+
+  my %opt;
+  Getopt::Long::Configure("bundling");
+  GetOptions((map +($_ => sub { $opt{$_[0]}++ }), qw/a b c i v z C E R U/),
+             (map +("$_=s@" => sub { $opt{$_[0]}{$_[1]}++ }), qw/w W d f m n o r T F I M/));
+
+  unless (defined $self->lang) {
+    for (keys %{$opt{m}}) {
+      my $lang_class = join '::', ref $self, uc($_);
+      if (do { eval "use $lang_class"; !$@ }) {
+        local @ARGV = (@prepro, @troff);
+        return $lang_class->run({%$self, lang => $_});
+      }
+    }
+  }
 
   # show subprograms version
-  say join ' ', basename($0), "version", $VERSION
+  say join ' ', basename($0), "version", $VERSION, ref $self
     if grep defined && $_ eq -v, @prepro;
 
   if (@troff) {
@@ -370,7 +391,11 @@ App::grops::prepro - groff grops prepro
 
 =head1 DESCRIPTION
 
-App::grops::prepro is ...
+App::grops::prepro is the base module of prepro described in DESC of
+grops and gropdf.
+
+Passes processing to the language-dependent perl module when -mI<lang>
+is specified on the groff command line.
 
 =head1 LICENSE
 

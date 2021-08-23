@@ -9,7 +9,11 @@ App::grops::prepro - groff grops prepro
 
 # DESCRIPTION
 
-App::grops::prepro is ...
+App::grops::prepro is the base module of prepro described in DESC of
+grops and gropdf.
+
+Passes processing to the language-dependent perl module when -m_lang_
+is specified on the groff command line.
 
 # LICENSE
 

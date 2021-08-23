@@ -1,0 +1,24 @@
+#!/usr/bin/env perl
+
+=encoding utf-8
+
+=head1 NAME
+
+pre-grops - groff prepro grops and gropdf
+
+=head1 SYNOPSYS
+
+install this program pre-grops as follows:
+
+ install pre-grops /usr/local/bin
+
+and add prepro line to your devps/DESC.
+
+ echo prepro pre-grops >> DESC
+
+=cut
+
+use lib './lib';
+use App::grops::prepro;
+#exit(App::grops::prepro->run({lang => "ja"}));
+exit(App::grops::prepro->run);

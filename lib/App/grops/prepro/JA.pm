@@ -324,7 +324,7 @@ sub gets {
         $line .= $ec . "\n" . $_;
         $_ = $line;
       } else {
-        push @{$self->{unget}}, $_;
+        unshift @{$self->{unget}}, $_;
         $_ = $line;
         last;
       }

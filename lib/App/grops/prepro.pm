@@ -3,10 +3,10 @@ use 5.008001;
 use strict;
 use warnings;
 
-our $VERSION = "0.02";
+our $VERSION = "0.03";
 
 BEGIN {
-  if (my @p5lib = split ':', $ENV{PERL5LIB}) {
+  if (my @p5lib = map +(split ':'), grep defined, $ENV{PERL5LIB}) {
     use lib @p5lib;
   }
 }
@@ -223,9 +223,11 @@ sub prepro_line {
   while (defined $self->gets()) {
     if ($self->debug & 1) {
       local $_ = $_;
+      my $nr = $.;
+      $nr -= /(\p{InDNL})/sg + 1 for $_, @{$self->unget};
       s/\p{InPUA}/$self->pua->{$&}/eg;
       s/\n/"\n" . (" " x 8)/eg;
-      printf STDERR "%6d%s %s\n", $., @{$self->unget} == 0 ? ':' : ';', $_;
+      printf STDERR "%6d%s %s\n", $nr, @{$self->unget} == 0 ? ':' : ';', $_;
     }
     if (@{$self->end}) {
       my $end = $self->end->[-1];
@@ -333,10 +335,11 @@ sub gets {
   my ($self) = @_;
 
   my $req = $self->re_req;
+  my $e_ret = $self->pua_char("\\", \&InDNL);
 
   return undef unless defined $self->getline();
 
-  while (/\p{InDNL}$/) {
+  while (/$req/s && /$e_ret$/s || !/$req/s && /\p{InDNL}$/) {
     my $line = $_;
     if (defined $self->gets()) {
       $line .= "\n" . $_;

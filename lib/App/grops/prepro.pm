@@ -3,7 +3,7 @@ use 5.008001;
 use strict;
 use warnings;
 
-our $VERSION = "0.03";
+our $VERSION = "0.04";
 
 BEGIN {
   if (my @p5lib = map +(split ':'), grep defined, $ENV{PERL5LIB}) {
@@ -21,12 +21,10 @@ use Getopt::Long;
 use Data::Clone 'clone';
 
 sub InPUA       { "F0000 FFFFF" }
-sub InDNL       { "F0000 F0FFF" }
 sub InESC       { "F1000 F1FFF" }
 
 has prologue    => (is => 'rw');
 has re_req      => (is => 'rw');
-has re_dnl      => (is => 'rw');
 has re_esc      => (is => 'rw');
 has pua         => (is => 'rw');
 has pua_saving  => (is => 'rw');
@@ -48,12 +46,6 @@ sub init {
   unless (defined $self->re_req) {
     $self->re_req(
       qr/ ^[.'] /x
-    );
-  }
-
-  unless (defined $self->re_dnl) {
-    $self->re_dnl(
-      qr/ \\ (?: c.* )? $ /x
     );
   }
 
@@ -80,7 +72,7 @@ sub init {
           | a
           | B '[^']*'
           | b '[^']*'
-          | c .* $
+          | c # .* $
           | C '[^']*'
           | d
           | D '[^']*'
@@ -220,14 +212,18 @@ sub prepro_line {
   my ($self) = @_;
 
   my $req = $self->re_req;
+  my $er = $self->pua_char("\\", \&InESC);
+  my $ec = $self->pua_char("\\c", \&InESC);
   while (defined $self->gets()) {
     if ($self->debug & 1) {
-      local $_ = $_;
-      my $nr = $.;
-      $nr -= /(\p{InDNL})/sg + 1 for $_, @{$self->unget};
-      s/\p{InPUA}/$self->pua->{$&}/eg;
-      s/\n/"\n" . (" " x 8)/eg;
-      printf STDERR "%6d%s %s\n", $nr, @{$self->unget} == 0 ? ':' : ';', $_;
+      my @line = split /\n/;
+      my $nr = $. - @line - grep defined, map +(split /\n/), @{$self->unget};
+      my $i = 0;
+      for (@line) {
+        s/\p{InPUA}/$self->pua->{$&}/eg;
+        printf STDERR "%6d%s %s\n", $nr + $i, $i == 0? ':' : '*', $_;
+        $i++;
+      }
     }
     if (@{$self->end}) {
       my $end = $self->end->[-1];
@@ -262,8 +258,10 @@ sub prepro {
 sub pua_char {
   my ($self, $token, $cs) = @_;
   if (ref $cs eq 'CODE') {
+    my @cf = split /\s+/, &$cs;
+    my $cs = join ':', @cf;
     unless ($self->pua->{$cs}) {
-      my ($free, $end) = map hex($_), split /\s+/, &$cs;
+      my ($free, $end) = map hex($_), @cf;
       $self->pua->{$cs} = { free => $free, start => $free, end => $end };
     }
     $token =~ s{\p{InPUA}}{$self->pua->{$&}}eg;
@@ -335,19 +333,30 @@ sub gets {
   my ($self) = @_;
 
   my $req = $self->re_req;
-  my $e_ret = $self->pua_char("\\", \&InDNL);
+  my $er = $self->pua_char("\\", \&InESC);
+  my $ec = $self->pua_char("\\c", \&InESC);
 
   return undef unless defined $self->getline();
 
-  while (/$req/s && /$e_ret$/s || !/$req/s && /\p{InDNL}$/) {
+  my ($last_req, $last_er, $last_ec) =
+    (scalar(/$req/), scalar(/$er$/), scalar(/$ec/));
+  while ($last_er || !$last_req && $last_ec) {
     my $line = $_;
-    if (defined $self->gets()) {
-      $line .= "\n" . $_;
+    if (defined $self->getline()) {
+      my ($is_req, $is_er, $is_ec) =
+        (scalar(/$req/), scalar(/$er$/), scalar(/$ec/));
+      if (!$last_er && !$last_req && $last_ec && $is_req) {
+        unshift @{$self->unget}, $_;
+        $_ = $line;
+        last;
+      }
+      $_ = $line . "\n" . $_;
+      ($last_req, $last_er, $last_ec) =
+        ($is_req, $is_er, $is_ec);
     } else {
       $_ = $line;
       last;
     }
-    $_ = $line;
   }
 
   $. = $1 - 1 if /$req\s*lf\s+(\d+)/;
@@ -360,20 +369,13 @@ sub getline {
   my ($self) = @_;
 
   my $esc = $self->re_esc;
-  my $dnl = $self->re_dnl;
 
   if (defined ($_ = shift @{$self->unget})) {
     ;
   } elsif (defined ($_ = <>)) {
-    chomp;
-    1 while s{$esc}{
-      my $e = $&;
-      if ($e =~ /^$dnl/) {
-        $self->pua_char($e, \&InDNL);
-      } else {
-        $self->pua_char($e, \&InESC)
-      }
-    }e;
+    my $newline = chomp;
+    1 while s{$esc}{$self->pua_char($&, \&InESC)}e;
+    $_ .= $self->pua_char("\\c", \&InESC) unless $newline;
   }
   $_;
 }

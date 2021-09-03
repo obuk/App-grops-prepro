@@ -12,7 +12,7 @@ binmode $builder->output,         ":encoding(utf8)";
 binmode $builder->failure_output, ":encoding(utf8)";
 binmode $builder->todo_output,    ":encoding(utf8)";
 
-use App::grops::prepro::JA;
+use_ok('App::grops::prepro::JA');
 
 sub preconv {
   my ($s) = @_;

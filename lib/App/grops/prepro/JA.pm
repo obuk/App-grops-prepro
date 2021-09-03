@@ -3,7 +3,7 @@ use 5.008001;
 use strict;
 use warnings;
 
-our $VERSION = "0.02";
+our $VERSION = "0.04";
 
 use feature qw/say/;
 use parent 'App::grops::prepro';
@@ -14,7 +14,6 @@ use Class::Accessor 'antlers';
 
 sub InPUA       { "F0000 FFFFF" }
 sub InPSPC      { "F0000 F000F" } # <-> InUSPC
-sub InDNL       { "F0010 F01FF" }
 sub InSPC       { "F0200 F0FFF" }
 sub InESC       { "F1000 F1FFF" }
 sub InFCD       { "F2000 F2FFF" }
@@ -211,6 +210,10 @@ sub prepro {
 
     my $m = $self->mode;
 
+    my $er = $self->pua_char("\\", \&InESC);
+    my $ec = $self->pua_char("\\c", \&InESC);
+    my $dnl = qr/(?:$er|$ec)/;
+
     if (my $delim = $self->fc) {
       s/${delim}.*${delim}/$self->pua_char($&, \&InFCD)/e;
     }
@@ -220,7 +223,7 @@ sub prepro {
         join $self->_zwsp(), split //, $&;
       }eg;
 
-      s{(\p{InJapanese})(\p{InDNL}\n)(\p{InJapanese})}{
+      s{(\p{InJapanese})(${dnl}\n)(\p{InJapanese})}{
         my ($j1, $c, $j2) = ($1, $2, $3);
         ($j1 =~ /\p{InStarting}/ || $j2 =~ /\p{InEnding}/)?
           $j1.$c.$j2 : $j1.$self->_zwsp().$c.$j2;
@@ -315,7 +318,7 @@ sub gets {
   my $m = $self->mode;
 
   my $req = $self->re_req;
-  my $ec = $self->pua_char("\\c", \&InDNL);
+  my $ec = $self->pua_char("\\c", \&InESC);
 
   while (defined && !/$req/ && !($m & m_cr) && /\p{InJapaneseCharacters}$/) {
     my $line = $_;
@@ -359,9 +362,6 @@ sub getline {
   my ($self) = @_;
 
   my $esc = $self->re_esc;
-  $esc = qr/$esc/;
-
-  my $dnl = $self->re_dnl;
   my $spc = $self->re_spc;
 
   if (defined ($_ = shift @{$self->{unget}})) {
@@ -369,12 +369,11 @@ sub getline {
   } elsif (defined ($_ = <>)) {
     my $newline = chomp;
 
+    say STDERR "# $_";
     1 while s{$esc}{
       my $e = $&;
       if ($e =~ /^$spc$/) {
         $self->pua_char($e, \&InSPC);
-      } elsif ($e =~ /^$dnl$/) {
-        $self->pua_char($e, \&InDNL);
       } elsif ($e =~ /^\\\[u([0-9A-F_]+)\]/) {
         my @u = map { pack "U", hex } split '_', $1;
         my $vs;
@@ -392,7 +391,7 @@ sub getline {
       }
     }e;
 
-    $_ .= $self->pua_char("\\c", \&InDNL) unless $newline;
+    $_ .= $self->pua_char("\\c", \&InESC) unless $newline;
 
   }
 

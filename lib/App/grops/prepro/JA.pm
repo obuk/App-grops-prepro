@@ -369,7 +369,6 @@ sub getline {
   } elsif (defined ($_ = <>)) {
     my $newline = chomp;
 
-    say STDERR "# $_";
     1 while s{$esc}{
       my $e = $&;
       if ($e =~ /^$spc$/) {

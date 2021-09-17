@@ -3,7 +3,7 @@ use 5.008001;
 use strict;
 use warnings;
 
-our $VERSION = "0.04";
+our $VERSION = "0.05";
 
 use feature qw/say/;
 use parent 'App::grops::prepro';
@@ -14,6 +14,7 @@ use Class::Accessor 'antlers';
 
 sub InPUA       { "F0000 FFFFF" }
 sub InPSPC      { "F0000 F000F" } # <-> InUSPC
+sub InPBSP      { "F0010 F001F" }
 sub InSPC       { "F0200 F0FFF" }
 sub InESC       { "F1000 F1FFF" }
 sub InFCD       { "F2000 F2FFF" }
@@ -25,6 +26,8 @@ has qemsp       => (is => 'rw');
 has zwsp        => (is => 'rw');
 has nrsp        => (is => 'rw');
 has wdsp        => (is => 'rw');
+has hembs       => (is => 'rw');
+has qembs       => (is => 'rw');
 has cr          => (is => 'rw');
 
 has re_num      => (is => 'rw');
@@ -62,6 +65,8 @@ sub init {
     $self->prologue(<<'END');
 .nr pp:debug 0
 .ds pp:color orange
+.if \n[pp:spacewidth]=0 .nr pp:spacewidth \w'\f(TR \fP'
+.
 .de pp:cr
 \c
 .  if (\\n[pp:debug]) \{\
@@ -74,25 +79,33 @@ sub init {
 .  nr \\$0.ss  \\n[.ss]
 .  nr \\$0.sss \\n[.sss]
 .  ss
-.  ie \\n[.$] .ss \\$*
-.  el .ss \\n[\\$0-width]
-.  nr \\$0-w (\\n[.ss]*100)u
-.  if (\\n[pp:debug])&(\\n[.ss]) \{\
+.
+.  ie \\w' ' \{\
+.    ie \\n[.$] .ss ((\\$* * \\n[pp:spacewidth]) / \\w' ')
+.    el .ss ((\\n[\\$0-width] * \\n[pp:spacewidth]) / \\w' ')
+.  \}
+.  el \{\
+.    ie \\n[.$] .ss \\$*
+.    el .ss \\n[\\$0-width]
+.  \}
+.
+.  nr \\$0-w 0.15m
+.  if (\\n[pp:debug]>0)&(\\n[.ss]>0) \{\
 .    ie '\\*[pp:color]'' .nop \Z'\D'l 0 +0.1'\D'l +\\n[\\$0-w]u 0''\c
 .    el .nop \m[\\*[pp:color]]\Z'\D'l 0 +0.1'\D'l +\\n[\\$0-w]u 0''\m[]\c
 .  \}
 .  nop \& \c
-.  if (\\n[pp:debug])&(\\n[.ss]) \{\
+.  if (\\n[pp:debug]>0)&(\\n[.ss]>0) \{\
 .    ie '\\*[pp:color]'' .nop \Z'\D'l 0 +0.1'\D'l -\\n[\\$0-w]u 0''\c
 .    el .nop \m[\\*[pp:color]]\Z'\D'l 0 +0.1'\D'l -\\n[\\$0-w]u 0''\m[]\c
 .  \}
 .  ss
 .  ss \\n[\\$0.ss] \\n[\\$0.sss]
 ..
-.nr pp:emsp-width  (\n[.ss] * 320 / 100)
-.nr pp:hemsp-width (\n[.ss] * 160 / 100)
-.nr pp:qemsp-width (\n[.ss] *  80 / 100)
-.nr pp:nrsp-width  (\n[.ss] *  20 / 100)
+.nr pp:emsp-width  (\n[.ss] * 400 / 100)
+.nr pp:hemsp-width (\n[.ss] * 200 / 100)
+.nr pp:qemsp-width (\n[.ss] * 100 / 100)
+.nr pp:nrsp-width  (\n[.ss] *  25 / 100)
 .nr pp:wdsp-width  (\n[.ss])
 .nr pp:zwsp-width  0
 .
@@ -102,6 +115,42 @@ sub init {
 .als pp:nrsp  pp:sp
 .als pp:wdsp  pp:sp
 .als pp:zwsp  pp:sp
+.
+.de pp:bs
+\c
+.  if '\\n[.fam]'C' .return
+.  if '\\n[.fn]'CR' .return
+.  if '\\n[.fn]'CI' .return
+.  if '\\n[.fn]'CB' .return
+.  if '\\n[.fn]'CBI' .return
+.
+.  ie \\n[.$] .nr \\$0-w \\$*
+.  el         .nr \\$0-w \\n[\\$0-width]
+.  if (\\n[pp:debug]>=2) \{\
+.    nr \\$0-w1 0.05m
+.    nr \\$0-w2 (\\n[\\$0-w] - (\\n[\\$0-w1]*2))u
+.    if \\n[\\$0-w2]>0 \{\
+.      nop \m[\\*[pp:color]]\Z'\
+\h'-\\n[\\$0-w1]u'\
+\v'-0.3m'\
+\D'l 0 -0.2m'\
+\v'+0.1m'\
+\D'l -\\n[\\$0-w2]u 0'\
+\D'l +0.15m -0.1m'\
+\v'+0.2m'\
+\D'l -0.15m -0.1m'\
+'\m[]\c
+.      \}
+.    \}
+.  \}
+.  nop \h'-\\n[\\$0-w]u'\c
+..
+.nr pp:hembs-width .5m
+.nr pp:qembs-width .25m
+.
+.als pp:hembs pp:bs
+.als pp:qembs pp:bs
+.
 END
   }
 
@@ -111,6 +160,8 @@ END
   $self->wdsp("\\*[pp:wdsp ]")   unless defined $self->wdsp;
   $self->nrsp("\\*[pp:nrsp ]")   unless defined $self->nrsp;
   $self->zwsp("\\*[pp:zwsp ]")   unless defined $self->zwsp;
+  $self->hembs("\\*[pp:hembs ]") unless defined $self->hembs;
+  $self->qembs("\\*[pp:qembs ]") unless defined $self->qembs;
 
   $self->cr("\\*[pp:cr ]")       unless defined $self->cr;
 
@@ -168,6 +219,16 @@ END
     my $sp = lc($1);
     my $_sp = "_$sp";
     my $c = $self->pua_char($_, \&InPSPC);
+    $self->pua_char($self->$sp, $c);
+    eval sprintf 'sub %s { "%X" }', $_, ord $c;
+    eval sprintf 'sub %s { "\\x{%X}" }', $_sp, ord $c;
+  }
+
+  for (qw/ IsHEmBs IsQEmBs /) {
+    /^Is(.*)/;
+    my $sp = lc($1);
+    my $_sp = "_$sp";
+    my $c = $self->pua_char($_, \&InPBSP);
     $self->pua_char($self->$sp, $c);
     eval sprintf 'sub %s { "%X" }', $_, ord $c;
     eval sprintf 'sub %s { "\\x{%X}" }', $_sp, ord $c;
@@ -256,12 +317,23 @@ sub prepro {
 
     if ($m & m_punct) {
       # 3.1.2
-      s/\p{InPSPC}*(\p{InStartingJ})/
-        $self->_hemsp().$1/eg;
-      s/(\p{InEndingJ})\p{InPSPC}*/
-        $1.$self->_hemsp()/eg;
-      s/\p{InPSPC}*(\p{InMiddleDotsJ}+)\p{InPSPC}*/
-        $self->_qemsp().$1.$self->_qemsp()/eg;
+
+      s{(\p{InPSPC}?)(\p{InStartingJ})}{
+        join '',
+          (defined $1 ? $1.($self->sp2bs($1) // '') : ''), $self->_hemsp(),
+          $2;
+      }eg;
+      s{(\p{InEndingJ})(\p{InPSPC}?)}{
+        join '',
+          $1,
+          (defined $2 ? $2.($self->sp2bs($2) // '') : ''), $self->_hemsp();
+      }eg;
+      s{(\p{InPSPC}?)(\p{InMiddleDotsJ}+)(\p{InPSPC}?)}{
+        join '',
+          (defined $1 ? $1.($self->sp2bs($1) // '') : ''), $self->_qemsp(),
+          $2,
+          (defined $3 ? $3.($self->sp2bs($3) // '') : ''), $self->_qemsp();
+      }eg;
 
       s/(\p{InJapanese}[\p{InSVS}\p{InIVS}]?)(\p{InStartingW})/
         $1.$self->_wdsp().$2/eg;
@@ -269,9 +341,16 @@ sub prepro {
         $1.$self->_wdsp().$2/eg;
 
       # 3.1.4
-      s/\p{InPSPC}+(\p{InEnding})/$1/g;
-      s/(\p{InStarting})\p{InPSPC}+/$1/g;
-
+      s{(\p{InPSPC})(\p{InEnding})}{
+        join '',
+          (defined $1 ? $1.($self->sp2bs($1) // '') : ''),
+          $2;
+      }eg;
+      s{(\p{InStarting})(\p{InPSPC})}{
+        join '',
+          $1,
+          (defined $2 ? $2.($self->sp2bs($2) // '') : '');
+      }eg;
     }
 
     # remove \p{InPSPC} in quotes
@@ -289,12 +368,26 @@ sub prepro {
     s/^\p{InPSPC}+//sg;
     s/\p{InPSPC}+$//sg;
 
+    s/(\p{InPSPC}$dnl\n)\p{InPSPC}/$1/g; # xxxxxx
+
     if ($m & m_cr) {
       s/$/$self->cr/meg;
     }
 
   }
 }
+
+
+sub sp2bs {
+  my ($self, $sp) = @_;
+  if ($sp) {
+    return $self->_hembs if $sp eq $self->_hemsp;
+    return $self->_qembs if $sp eq $self->_qemsp;
+    die sprintf "sp2bs: unknown space u%X\n", ord $sp;
+  }
+  undef;
+}
+
 
 sub mode {
   my $self = shift;

@@ -3,7 +3,7 @@ use 5.008001;
 use strict;
 use warnings;
 
-our $VERSION = "0.05";
+our $VERSION = "0.06";
 
 BEGIN {
   if (my @p5lib = map +(split ':'), grep defined, $ENV{PERL5LIB}) {
@@ -217,7 +217,7 @@ sub prepro_line {
   while (defined $self->gets()) {
     if ($self->debug & 1) {
       my @line = split /\n/;
-      my $nr = $. - @line - grep defined, map +(split /\n/), @{$self->unget};
+      my $nr = $. + 1 - @line - grep defined, map +(split /\n/), @{$self->unget};
       my $i = 0;
       for (@line) {
         s/\p{InPUA}/$self->pua->{$&}/eg;

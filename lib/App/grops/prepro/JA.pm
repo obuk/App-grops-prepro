@@ -3,7 +3,7 @@ use 5.008001;
 use strict;
 use warnings;
 
-our $VERSION = "0.05";
+our $VERSION = "0.06";
 
 use feature qw/say/;
 use parent 'App::grops::prepro';
@@ -315,6 +315,14 @@ sub prepro {
       }
     }
 
+    # remove \p{InPSPC} in quotes
+    s/([\`\'\"])\p{InPSPC}+(.*?)\p{InPSPC}+([\'\"])/do {
+      $1.$2.$3;
+    }/eg;
+
+    # remove \p{InPSPC} around \p{InInsep} characters
+    s/\p{InPSPC}*(\p{InInsep}+)\p{InPSPC}*/$1/g;
+
     if ($m & m_punct) {
       # 3.1.2
 
@@ -352,14 +360,6 @@ sub prepro {
           (defined $2 ? $2.($self->sp2bs($2) // '') : '');
       }eg;
     }
-
-    # remove \p{InPSPC} in quotes
-    s/([\`\'\"])\p{InPSPC}+(.*?)\p{InPSPC}+([\'\"])/do {
-      $1.$2.$3;
-    }/eg;
-
-    # remove \p{InPSPC} around \p{InInsep} characters
-    s/\p{InPSPC}*(\p{InInsep}+)\p{InPSPC}*/$1/g;
 
     # to prefer input, remove \p{InPSPC} adjacent to \p{InUSPC}.
     s/\p{InPSPC}+(\p{InUSPC})/$1/g;

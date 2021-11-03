@@ -25,6 +25,8 @@ sub preconv {
   $s;
 }
 
+my $hemsp = "\\[half-em-space]";
+
 sub pp0 {
   my $s = shift;
   my %opts = (
@@ -32,6 +34,7 @@ sub pp0 {
     zwsp => "",
     wdsp => " ",
     nrsp => "",
+    hemsp => $hemsp,
     @_,
   );
   trap {
@@ -62,6 +65,7 @@ is pp0("改行\\c\n無効\n"), preconv("改行\\c\n無効"), "ja-\\c\\n-ja";
 is pp1("YY/MM/DD"), preconv("YY/MM/DD"), "is1 w/w/w";
 is pp1("年/月/日"), preconv("年/月/日"), "is2 j/j/j";
 is pp1("09/12/34"), preconv("09/12/34"), "is3 n/n/n";
+is pp1("/dir/1/、/dir/2/"), preconv("/dir/1/、$hemsp/dir/2/"), "is4 hold hemsp after comma";
 
 # remove \p{InPSPC} in quotes
 is pp1("q1 'joe' we"), preconv("q1 'joe' we"), "q1 'joe' we";

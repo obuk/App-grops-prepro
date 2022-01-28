@@ -26,14 +26,16 @@ sub preconv {
 }
 
 my $hemsp = "\\[half-em-space]";
+my $wdsp = "\\[word-space]";
+my $nrsp = "\\[number-space]";
 
 sub pp0 {
   my $s = shift;
   my %opts = (
     prologue => "",
     zwsp => "",
-    wdsp => " ",
-    nrsp => "",
+    wdsp => $wdsp,
+    nrsp => $nrsp,
     hemsp => $hemsp,
     @_,
   );
@@ -74,5 +76,10 @@ is pp1("q3 `joe' we"), preconv("q3 `joe' we"), "q3 `joe' we";
 is pp1("q1 '太朗' ja"), preconv("q1 '太朗' ja"), "q1 '太朗' ja";
 is pp1("q2 \"太朗\" ja"), preconv("q2 \"太朗\" ja"), "q2 \"太朗\" ja";
 is pp1("q3 `太朗' ja"), preconv("q3 `太朗' ja"), "q3 `太朗' ja";
+
+# number (\p{InNUM}) following word (\p{InWestern}) is part of word
+is pp1("はperl5で"), preconv("は${wdsp}perl5${wdsp}で"), "n1 wdsp";
+is pp1("はperl 5で"), preconv("は${wdsp}perl 5${wdsp}で"), "n2 wdsp";
+is pp1("は12345で"), preconv("は${nrsp}12345${nrsp}で"), "n3 nrsp";
 
 done_testing;

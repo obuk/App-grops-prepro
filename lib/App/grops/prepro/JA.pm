@@ -3,7 +3,7 @@ use 5.008001;
 use strict;
 use warnings;
 
-our $VERSION = "0.06";
+our $VERSION = "0.07";
 
 use feature qw/say/;
 use parent 'App::grops::prepro';
@@ -166,34 +166,28 @@ END
   $self->cr("\\*[pp:cr ]")       unless defined $self->cr;
 
   unless (defined $self->re_spc) {
+    # re_spc handles escapes that match re_esc, so it's easy.
     $self->re_spc(
       qr/ \\ (?:
             \/                    # Ligatures and Kerning
           | \,
           | \&
           | \)
-
-          | v (?: '[^']*' | \[ [^\]]* \] ) # Page Motions
+          | v .*
           | r
           | u
           | d
-          | h (?: '[^']*' | \[ [^\]]* \] )
+          | h .*
           | \x{20}
           | \~
           | \|
           | \^
           | 0
-          | w '[^']*'
-          | k (?&name)
-          | o '[^']*'
-          | z (?&glyph)
-          | Z '[^']*'
-          )
-          (?(DEFINE)
-            (?<ident> [^\s\x{00}\x{01}\x{0B}\x{0D}-\x{1F}\x{80}-\x{9F}]+ )
-            (?<name>  [^\[\(] | \( .. | \[ [^\]]* \] )
-            (?<glyph> \\ (?&name) | [^\\] )
-            (?<size> [+\-]?\d | \([+\-]?\d\d )
+          | w .*
+          | k .*
+          | o .*
+          | z .*
+          | Z .*
           )
         /mx
       );
@@ -274,6 +268,7 @@ sub prepro {
     my $er = $self->pua_char("\\", \&InESC);
     my $ec = $self->pua_char("\\c", \&InESC);
     my $dnl = qr/(?:$er|$ec)/;
+    my $br = $self->_zwsp;
 
     if (my $delim = $self->fc) {
       s/${delim}.*${delim}/$self->pua_char($&, \&InFCD)/e;
@@ -306,6 +301,7 @@ sub prepro {
     if ($m & m_nrsp) {
       if (my $number = $self->re_num) {
         s{$number}{$self->pua_char($&, \&InNUM)}egx;
+        s{(\p{InWestern}\p{InUSPC}*)(\p{InNUM})}{$1.$self->pua->{$2}}egx;
         s{(\p{InJapanese}[\p{InSVS}\p{InIVS}]?)\p{IsWdSp}*(\p{InNUM})}{
           $1.$self->_nrsp.$2;
         }egx;
@@ -321,7 +317,8 @@ sub prepro {
     }/eg;
 
     # remove \p{InPSPC} around \p{InInsep} characters
-    s/\p{InPSPC}*(\p{InInsep}+)\p{InPSPC}*/$1/g;
+    #s/\p{InPSPC}*(\p{InInsep}+)\p{InPSPC}*/$1/g;
+    s/\p{InPSPC}*(\p{InInsep}+)\p{InPSPC}*/$1$br/g;
 
     if ($m & m_punct) {
       # 3.1.2
@@ -383,6 +380,7 @@ sub sp2bs {
   if ($sp) {
     return $self->_hembs if $sp eq $self->_hemsp;
     return $self->_qembs if $sp eq $self->_qemsp;
+    return ''            if $sp eq $self->_zwsp;
     die sprintf "sp2bs: unknown space u%X\n", ord $sp;
   }
   undef;
@@ -461,7 +459,6 @@ sub getline {
     ;
   } elsif (defined ($_ = <>)) {
     my $newline = chomp;
-
     1 while s{$esc}{
       my $e = $&;
       if ($e =~ /^$spc$/) {
@@ -482,7 +479,6 @@ sub getline {
         $self->pua_char($e, \&InESC)
       }
     }e;
-
     $_ .= $self->pua_char("\\c", \&InESC) unless $newline;
 
   }

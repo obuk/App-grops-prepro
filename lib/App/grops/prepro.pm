@@ -3,7 +3,7 @@ use 5.008001;
 use strict;
 use warnings;
 
-our $VERSION = "0.06";
+our $VERSION = "0.07";
 
 BEGIN {
   if (my @p5lib = map +(split ':'), grep defined, $ENV{PERL5LIB}) {
@@ -51,78 +51,81 @@ sub init {
 
   unless (defined $self->re_esc) {
     $self->re_esc(
-      qr/ \\ (?:
-            \! .* $
-          | \" .* $
-          | \# .* $
-          | \$ (?: (?&name) | \* | 0 | \@ | \^ )
-          | \%
-          | \&
-          | \'
-          | \)
-          | \* (?&name)
-          | \,
-          | \-
-          | \.
-          | \/
-          | 0
-          | :
-          | \? .*? \\\?
-          | A (?&ident)
-          | a
-          | B '[^']*'
-          | b '[^']*'
-          | c # .* $
-          | C '[^']*'
-          | d
-          | D '[^']*'
-          | e
-          | E
-          | f (?&name)
-          | F (?&name)
-          | g (?&name)
-          | H '[^']*'
-          | h (?: '[^']*' | \[ [^\]]* \] )
-          | k (?&name)
-          | l '[^']*'
-          | L '[^']*'
-          | m (?&name)
-          | M (?&name)
-          | n (?&name)
-          | o '[^']*'
-          | p
-          | R '[^']*'
-          | r
-          | $
-          | S '[^']*'
-          | s (?&size)
-          | \x{20}
-          | u
-          | t
-          | v '[^']*'
-          | w '[^']*'
-          | x '[^']*'
-          | X '[^']*'
-          | Y (?&name)
-          | Z (?: '[^']*' )
-          | z (?&glyph)
-          | \\
-          | \^
-          | \_
-          | \'
-          | \`
-          | \{
-          | \|
-          | \}
-          | \~
-          | \[ [^\]]* \]
-          | \( ..
-          )
+      qr/ \\ (?&term)
           (?(DEFINE)
             (?<ident> [^\s\x{00}\x{01}\x{0B}\x{0D}-\x{1F}\x{80}-\x{9F}]+ )
             (?<name>  [^\[\(] | \( .. | \[ [^\]]* \] )
             (?<glyph> \\ (?&name) | [^\\] )
             (?<size> [+\-]?\d | \([+\-]?\d\d )
+            (?<string> ' (?: \\ (?&term) | [^\'] ) * ' )
+            (?<term> (?:
+                \! .* $
+              | \" .* $
+              | \# .* $
+              | \$ (?: (?&name) | \* | 0 | \@ | \^ )
+              | \%
+              | \&
+              | \'
+              | \)
+              | \* (?&name)
+              | \,
+              | \-
+              | \.
+              | \/
+              | 0
+              | :
+              | \? .*? \\\?
+              | A (?&ident)
+              | a
+              | B (?&string)
+              | b (?&string)
+              | c # .* $
+              | C (?&string)
+              | d
+              | D (?&string)
+              | e
+              | E
+              | f (?&name)
+              | F (?&name)
+              | g (?&name)
+              | H (?&string)
+              | h (?&string)
+              | k (?&name)
+              | l (?&string)
+              | L (?&string)
+              | m (?&name)
+              | M (?&name)
+              | n (?&name)
+              | o (?&string)
+              | p
+              | R (?&string)
+              | r
+              | $
+              | S (?&string)
+              | s (?&size)
+              | \x{20}
+              | u
+              | t
+              | v (?&string)
+              | w (?&string)
+              | x (?&string)
+              | X (?&string)
+              | Y (?&name)
+              | Z (?&string)
+              | z (?&glyph)
+              | \\
+              | \^
+              | \_
+              | \'
+              | \`
+              | \{
+              | \|
+              | \}
+              | \~
+              | \[ [^\]]* \]
+              | \( ..
+              )
+            )
           )
         /mx
       );

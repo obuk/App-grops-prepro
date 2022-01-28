@@ -4,7 +4,7 @@
       "KUBO, Koichi <k@obuk.org>"
    ],
    "dynamic_config" : 0,
-   "generated_by" : "Minilla/v3.1.12, CPAN::Meta::Converter version 2.150010",
+   "generated_by" : "Minilla/v3.1.14, CPAN::Meta::Converter version 2.150010",
    "license" : [
       "perl_5"
    ],
@@ -74,7 +74,7 @@
          "web" : "https://github.com/obuk/App-grops-prepro"
       }
    },
-   "version" : "0.06",
+   "version" : "0.07",
    "x_serialization_backend" : "JSON::PP version 4.02",
    "x_static_install" : 1
 }

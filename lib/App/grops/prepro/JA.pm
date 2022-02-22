@@ -3,7 +3,7 @@ use 5.008001;
 use strict;
 use warnings;
 
-our $VERSION = "0.07";
+our $VERSION = "0.08";
 
 use feature qw/say/;
 use parent 'App::grops::prepro';
@@ -44,6 +44,8 @@ sub m_cr        { (1 << 5) }
 
 sub init {
   my ($self) = @_;
+
+  binmode STDERR, ":utf8";
 
   eval { require Unicode::Normalize };
 

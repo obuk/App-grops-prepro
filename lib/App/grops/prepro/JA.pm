@@ -3,7 +3,7 @@ use 5.008001;
 use strict;
 use warnings;
 
-our $VERSION = "0.08";
+our $VERSION = "0.09";
 
 use feature qw/say/;
 use parent 'App::grops::prepro';
@@ -29,6 +29,7 @@ has wdsp        => (is => 'rw');
 has hembs       => (is => 'rw');
 has qembs       => (is => 'rw');
 has cr          => (is => 'rw');
+has eC          => (is => 'rw');
 
 has re_num      => (is => 'rw');
 has re_mode     => (is => 'rw');
@@ -41,6 +42,10 @@ sub m_zwsp      { (1 << 1) }
 sub m_wdsp      { (1 << 2) }
 sub m_nrsp      { (1 << 4) }
 sub m_cr        { (1 << 5) }
+sub m_suspend   { (1 << 6) }
+
+has re_suspend  => (is => 'rw');
+has re_restart  => (is => 'rw');
 
 sub init {
   my ($self) = @_;
@@ -50,6 +55,7 @@ sub init {
   eval { require Unicode::Normalize };
 
   #$self->debug(16);
+  #$self->tee("/tmp/a.pp");
 
   unless (defined $self->lang) {
     $self->lang((split '::', __PACKAGE__)[-1]);
@@ -153,6 +159,8 @@ sub init {
 .als pp:hembs pp:bs
 .als pp:qembs pp:bs
 .
+.ds pp:c0
+.ds pp:c1 \\c
 END
   }
 
@@ -166,6 +174,7 @@ END
   $self->qembs("\\*[pp:qembs ]") unless defined $self->qembs;
 
   $self->cr("\\*[pp:cr ]")       unless defined $self->cr;
+  $self->eC("\\*[pp:c\\n(.u]\\\"") unless defined $self->eC;
 
   unless (defined $self->re_spc) {
     # re_spc handles escapes that match re_esc, so it's easy.
@@ -208,6 +217,21 @@ END
       );
   }
 
+=begin comment
+
+  # suspend/resume (experimental) for verbatim blocks
+
+  unless (defined $self->re_suspend) {
+    $self->re_suspend(qr/EX|Ps/);
+  }
+  unless (defined $self->re_restart) {
+    $self->re_restart(qr/EE|Pe/);
+  }
+
+=end comment
+
+=cut
+
   $self->SUPER::init;
 
   for (qw/ IsEmSp IsHEmSp IsQEmSp IsWdSp IsNrSp IsZwSp /) {
@@ -230,6 +254,11 @@ END
     eval sprintf 'sub %s { "\\x{%X}" }', $_sp, ord $c;
   }
 
+  for my $e (qw/ eC /) {
+    my $c = $self->pua_char($self->$e, \&InESC);
+    eval sprintf 'sub _%s { "\\x{%X}" }', $e, ord $c;
+  }
+
   $self;
 }
 
@@ -239,6 +268,8 @@ sub prepro {
 
   my $req  = $self->re_req;
   my $mode = $self->re_mode;
+  my $suspend = $self->re_suspend;
+  my $restart = $self->re_restart;
 
   if ($mode) {
     if (my ($e) = /$req\s*(\p{InESC})/) {
@@ -253,6 +284,10 @@ sub prepro {
     } else {
       $self->fc(undef);
     }
+  } elsif ($suspend && /$req\s*$suspend\b/) {
+    $self->mode(m_suspend);
+  } elsif ($restart && /$req\s*$restart\b/) {
+    $self->mode(undef);
   } elsif (/$req/) {
 
     if (/$req\s*Sh\s+(名前|名称)\b/) {
@@ -266,11 +301,13 @@ sub prepro {
   } else {
 
     my $m = $self->mode;
+    return if $m & m_suspend;
 
-    my $er = $self->pua_char("\\", \&InESC);
-    my $ec = $self->pua_char("\\c", \&InESC);
-    my $dnl = qr/(?:$er|$ec)/;
-    my $br = $self->_zwsp;
+    my $er = $self->_er;
+    my $ec = $self->_ec;
+    my $eC = $self->_eC;
+
+    my $dnl = qr/(?:$er|$ec|$eC)/;
 
     if (my $delim = $self->fc) {
       s/${delim}.*${delim}/$self->pua_char($&, \&InFCD)/e;
@@ -319,8 +356,12 @@ sub prepro {
     }/eg;
 
     # remove \p{InPSPC} around \p{InInsep} characters
-    #s/\p{InPSPC}*(\p{InInsep}+)\p{InPSPC}*/$1/g;
-    s/\p{InPSPC}*(\p{InInsep}+)\p{InPSPC}*/$1$br/g;
+    if ($m & m_zwsp) {
+      my $br = $self->_zwsp;
+      s/\p{InPSPC}*(\p{InInsep}+)\p{InPSPC}*/$1$br/g;
+    } else {
+      s/\p{InPSPC}*(\p{InInsep}+)\p{InPSPC}*/$1/g;
+    }
 
     if ($m & m_punct) {
       # 3.1.2
@@ -411,7 +452,7 @@ sub gets {
   my $m = $self->mode;
 
   my $req = $self->re_req;
-  my $ec = $self->pua_char("\\c", \&InESC);
+  my $ec = $self->_eC // $self->_ec;
 
   while (defined && !/$req/ && !($m & m_cr) && /\p{InJapaneseCharacters}$/) {
     my $line = $_;
@@ -481,7 +522,7 @@ sub getline {
         $self->pua_char($e, \&InESC)
       }
     }e;
-    $_ .= $self->pua_char("\\c", \&InESC) unless $newline;
+    $_ .= $self->_ec unless $newline;
 
   }
 

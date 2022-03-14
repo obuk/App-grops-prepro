@@ -74,7 +74,7 @@
          "web" : "https://github.com/obuk/App-grops-prepro"
       }
    },
-   "version" : "0.08",
+   "version" : "0.09",
    "x_serialization_backend" : "JSON::PP version 4.02",
    "x_static_install" : 1
 }

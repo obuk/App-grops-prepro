@@ -28,6 +28,7 @@ sub preconv {
 my $hemsp = "\\[half-em-space]";
 my $wdsp = "\\[word-space]";
 my $nrsp = "\\[number-space]";
+my $eC = "\\c:dnl\\\"";
 
 sub pp0 {
   my $s = shift;
@@ -37,6 +38,7 @@ sub pp0 {
     wdsp => $wdsp,
     nrsp => $nrsp,
     hemsp => $hemsp,
+    eC => $eC,
     @_,
   );
   trap {
@@ -60,7 +62,7 @@ sub pp1 {
 is pp0("line\n"), preconv("line"), "w newline";
 is pp0("line"), preconv("line\\c"), "wo newline";
 is pp0("行\nline\n"), preconv("行\nline"), "ja-\\n-we";
-is pp0("改行\n無効\n"), preconv("改行\\c\n無効"), "ja-\\n-ja";
+is pp0("改行\n無効\n"), preconv("改行$eC\n無効"), "ja-\\n-ja";
 is pp0("改行\\c\n無効\n"), preconv("改行\\c\n無効"), "ja-\\c\\n-ja";
 
 # add / to \p{InInseparableCharacters}

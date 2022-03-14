@@ -3,7 +3,7 @@ use 5.008001;
 use strict;
 use warnings;
 
-our $VERSION = "0.08";
+our $VERSION = "0.09";
 
 BEGIN {
   if (my @p5lib = map +(split ':'), grep defined, $ENV{PERL5LIB}) {
@@ -32,6 +32,9 @@ has unget       => (is => 'rw');
 has tee         => (is => 'rw');
 has lang        => (is => 'rw');
 has debug       => (is => 'rw');
+
+has er          => (is => 'rw');
+has ec          => (is => 'rw');
 
 sub init {
   my ($self) = @_;
@@ -130,6 +133,15 @@ sub init {
       );
   }
 
+  $self->er("\\")  unless defined $self->er;
+  $self->ec("\\c") unless defined $self->ec;
+
+  for my $e (qw/ er ec /) {
+    my $c = $self->pua_char($self->$e, \&InESC);
+    no warnings 'redefine';
+    eval sprintf 'sub _%s { "\\x{%X}" }', $e, ord $c;
+  }
+
   $self;
 }
 
@@ -214,8 +226,6 @@ sub prepro_line {
   my ($self) = @_;
 
   my $req = $self->re_req;
-  my $er = $self->pua_char("\\", \&InESC);
-  my $ec = $self->pua_char("\\c", \&InESC);
   while (defined $self->gets()) {
     if ($self->debug & 1) {
       my @line = split /\n/;
@@ -335,8 +345,8 @@ sub gets {
   my ($self) = @_;
 
   my $req = $self->re_req;
-  my $er = $self->pua_char("\\", \&InESC);
-  my $ec = $self->pua_char("\\c", \&InESC);
+  my $er = $self->_er;
+  my $ec = $self->_ec;
 
   return undef unless defined $self->getline();
 
@@ -377,7 +387,7 @@ sub getline {
   } elsif (defined ($_ = <>)) {
     my $newline = chomp;
     1 while s{$esc}{$self->pua_char($&, \&InESC)}e;
-    $_ .= $self->pua_char("\\c", \&InESC) unless $newline;
+    $_ .= $self->_ec unless $newline;
   }
   $_;
 }

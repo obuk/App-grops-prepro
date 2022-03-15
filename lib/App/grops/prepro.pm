@@ -3,7 +3,7 @@ use 5.008001;
 use strict;
 use warnings;
 
-our $VERSION = "0.09";
+our $VERSION = "0.10";
 
 BEGIN {
   if (my @p5lib = map +(split ':'), grep defined, $ENV{PERL5LIB}) {
@@ -47,7 +47,7 @@ sub init {
 
   unless (defined $self->re_req) {
     $self->re_req(
-      qr/ ^[.'] /x
+      qr/ [.'] /x
     );
   }
 
@@ -239,9 +239,9 @@ sub prepro_line {
     }
     if (@{$self->end}) {
       my $end = $self->end->[-1];
-      pop @{$self->end} if /$req\s*$end$/;
+      pop @{$self->end} if /^$req\s*$end$/;
     }
-    if (/$req\s*(de\S*|am\S*|ig)\s*(.*)/) {
+    if (/^$req\s*(de\S*|am\S*|ig)\s*(.*)/) {
       my ($f, $l) = ($1, $2);
       push @{$self->end}, "\\.";
       my @list = split /\s+/, $l;
@@ -351,12 +351,12 @@ sub gets {
   return undef unless defined $self->getline();
 
   my ($last_req, $last_er, $last_ec) =
-    (scalar(/$req/), scalar(/$er$/), scalar(/$ec/));
+    (scalar(/^$req/), scalar(/$er$/), scalar(/$ec$/));
   while ($last_er || !$last_req && $last_ec) {
     my $line = $_;
     if (defined $self->getline()) {
       my ($is_req, $is_er, $is_ec) =
-        (scalar(/$req/), scalar(/$er$/), scalar(/$ec/));
+        (scalar(/^$req/), scalar(/$er$/), scalar(/$ec$/));
       if (!$last_er && !$last_req && $last_ec && $is_req) {
         unshift @{$self->unget}, $_;
         $_ = $line;
@@ -371,7 +371,7 @@ sub gets {
     }
   }
 
-  $. = $1 - 1 if /$req\s*lf\s+(\d+)/;
+  $. = $1 - 1 if /^$req\s*lf\s+(\d+)/;
 
   return $_;
 }

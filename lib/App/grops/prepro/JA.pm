@@ -3,7 +3,7 @@ use 5.008001;
 use strict;
 use warnings;
 
-our $VERSION = "0.09";
+our $VERSION = "0.10";
 
 use feature qw/say/;
 use parent 'App::grops::prepro';
@@ -272,25 +272,25 @@ sub prepro {
   my $restart = $self->re_restart;
 
   if ($mode) {
-    if (my ($e) = /$req\s*(\p{InESC})/) {
+    if (my ($e) = /^$req\s*(\p{InESC})/) {
       if ($self->pua->{$e} =~ /$mode(?:\s+(\d+))?/) {
         $self->mode($1);
       }
     }
   }
-  if (/$req\s*fc(?:\s+(.)(.)?)?$/) {
+  if (/^$req\s*fc(?:\s+(.)(.)?)?$/) {
     if (defined $1) {
       $self->fc(sprintf "\\x{%X}", ord $1);
     } else {
       $self->fc(undef);
     }
-  } elsif ($suspend && /$req\s*$suspend\b/) {
+  } elsif ($suspend && /^$req\s*$suspend\b/) {
     $self->mode(m_suspend);
-  } elsif ($restart && /$req\s*$restart\b/) {
+  } elsif ($restart && /^$req\s*$restart\b/) {
     $self->mode(undef);
-  } elsif (/$req/) {
+  } elsif (/^$req/) {
 
-    if (/$req\s*Sh\s+(名前|名称)\b/) {
+    if (/^$req\s*Sh\s+(名前|名称)\b/) {
       $_ = join "\n",
         ".ds section-name $1",
         ".ds doc-section-name $1",
@@ -402,13 +402,17 @@ sub prepro {
     }
 
     # to prefer input, remove \p{InPSPC} adjacent to \p{InUSPC}.
-    s/\p{InPSPC}+(\p{InUSPC})/$1/g;
-    s/(\p{InUSPC})\p{InPSPC}+/$1/g;
+    s/(\p{InPSPC}\p{InPBSP}?)+(\p{InUSPC})/$2/g;
+    s/(\p{InUSPC})(\p{InPSPC}\p{InPBSP}?)+/$1/g;
 
-    s/^\p{InPSPC}+//sg;
-    s/\p{InPSPC}+$//sg;
+    # remove \p{InPSPC}s at BOL and EOL.
+    s/^(\p{InPSPC}\p{InPBSP}?)+//sg;
+    s/(\p{InPSPC}\p{InPBSP}?)+$//sg;
 
-    s/(\p{InPSPC}$dnl\n)\p{InPSPC}/$1/g; # xxxxxx
+    s/(\p{InPSPC}\p{InPBSP}?$dnl\n)(\p{InPSPC}\p{InPBSP}?)/$1/g;
+
+    # escape [.'] with \& to prevent text line become control line
+    s/(\p{InPSPC}\p{InPBSP}?)($req)/$1\\&$2/g;
 
     if ($m & m_cr) {
       s/$/$self->cr/meg;
@@ -454,7 +458,7 @@ sub gets {
   my $req = $self->re_req;
   my $ec = $self->_eC // $self->_ec;
 
-  while (defined && !/$req/ && !($m & m_cr) && /\p{InJapaneseCharacters}$/) {
+  while (defined && !/^$req/ && !($m & m_cr) && /\p{InJapaneseCharacters}$/) {
     my $line = $_;
     if (defined $self->SUPER::gets()) {
       if (!($m & m_cr) && /^\p{InJapaneseCharacters}/) {

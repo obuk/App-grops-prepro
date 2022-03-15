@@ -79,6 +79,9 @@ is pp1("q1 '太朗' ja"), preconv("q1 '太朗' ja"), "q1 '太朗' ja";
 is pp1("q2 \"太朗\" ja"), preconv("q2 \"太朗\" ja"), "q2 \"太朗\" ja";
 is pp1("q3 `太朗' ja"), preconv("q3 `太朗' ja"), "q3 `太朗' ja";
 
+# escape [.'] with \& to prevent text line become control line
+is pp1(" '/' "), preconv(" '/\\&' "), " '/\\&' ";
+
 # number (\p{InNUM}) following word (\p{InWestern}) is part of word
 is pp1("はperl5で"), preconv("は${wdsp}perl5${wdsp}で"), "n1 wdsp";
 is pp1("はperl 5で"), preconv("は${wdsp}perl 5${wdsp}で"), "n2 wdsp";

@@ -3,7 +3,7 @@ use 5.008001;
 use strict;
 use warnings;
 
-our $VERSION = "0.10";
+our $VERSION = "0.11";
 
 use feature qw/say/;
 use parent 'App::grops::prepro';
@@ -44,6 +44,7 @@ sub m_nrsp      { (1 << 4) }
 sub m_cr        { (1 << 5) }
 sub m_suspend   { (1 << 6) }
 
+has insbp       => (is => 'rw');
 has re_suspend  => (is => 'rw');
 has re_restart  => (is => 'rw');
 
@@ -209,13 +210,15 @@ END
       qr/ (?&pre)? (?&num) (?&post)?
           (?(DEFINE)
             (?<pre> \p{InPrefixedAbbreviations}+ )
-            (?<num> \d+ (?: (?:[.,]\p{InUSPC}?) \d+ )* )
+            (?<num> \d+ (?: (?:[.,\/]\p{InUSPC}?) \d+ )* )
             (?<post> (?: \p{InPostfixedAbbreviations} | \p{InUnitSymbolsSimple} )+
             | \p{InUSPC}* [(\[] [^\)\]]+ [)\]] )
           )
         /x
       );
   }
+
+  $self->insbp(3) unless defined $self->insbp;
 
 =begin comment
 
@@ -305,7 +308,7 @@ sub prepro {
 
     my $er = $self->_er;
     my $ec = $self->_ec;
-    my $eC = $self->_eC;
+    my $eC = $self->_eC // $ec;
 
     my $dnl = qr/(?:$er|$ec|$eC)/;
 
@@ -355,12 +358,14 @@ sub prepro {
       $1.$2.$3;
     }/eg;
 
-    # remove \p{InPSPC} around \p{InInsep} characters
-    if ($m & m_zwsp) {
-      my $br = $self->_zwsp;
-      s/\p{InPSPC}*(\p{InInsep}+)\p{InPSPC}*/$1$br/g;
-    } else {
-      s/\p{InPSPC}*(\p{InInsep}+)\p{InPSPC}*/$1/g;
+    # insert zwsp as break point after \p{InInsep} characters
+    if ($self->insbp) {
+      my $bp = $m & m_zwsp ? $self->_zwsp : $self->pua_char("\\:", \&InESC);
+      s/\p{InPSPC}*(\p{InInsep}+)\p{InPSPC}*/$1$bp/g;
+      s/([^\p{InUSPC}\p{InInsep}]*)(\p{InInsep}+)[$bp]/
+        $1 && length($1) >= $self->insbp ? $& :
+        $1 ? $1.$2 : $2
+        /eg;
     }
 
     if ($m & m_punct) {
@@ -406,9 +411,10 @@ sub prepro {
     s/(\p{InUSPC})(\p{InPSPC}\p{InPBSP}?)+/$1/g;
 
     # remove \p{InPSPC}s at BOL and EOL.
-    s/^(\p{InPSPC}\p{InPBSP}?)+//sg;
-    s/(\p{InPSPC}\p{InPBSP}?)+$//sg;
+    s/^(\p{InPSPC}\p{InPBSP}?)+//s;
+    s/(\p{InPSPC}\p{InPBSP}?)+$//s;
 
+    # reduce (\p{InPSPC}\p{InPBSP}?)* acrossing lines
     s/(\p{InPSPC}\p{InPBSP}?$dnl\n)(\p{InPSPC}\p{InPBSP}?)/$1/g;
 
     # escape [.'] with \& to prevent text line become control line

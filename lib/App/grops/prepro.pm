@@ -3,7 +3,7 @@ use 5.008001;
 use strict;
 use warnings;
 
-our $VERSION = "0.10";
+our $VERSION = "0.11";
 
 BEGIN {
   if (my @p5lib = map +(split ':'), grep defined, $ENV{PERL5LIB}) {
@@ -294,6 +294,15 @@ sub pua_char {
     $self->pua->{token}{$token};
   } else {
     my $code = $cs;
+    unless (defined $token) {
+      if ($self->debug & 16) {
+        my ($pname, $fname, $line) = caller;
+        say STDERR "# pua_char: \$token = undef, \$cs = ",
+          sprintf("'\\x{%X}'", ord($cs)),
+          " called from near $fname($line)";
+      }
+      $token = '';
+    }
     $self->pua->{$code} = $token;
     $self->pua->{token}{$token} = $code;
   }

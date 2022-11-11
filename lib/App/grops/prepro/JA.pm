@@ -37,6 +37,9 @@ has re_spc      => (is => 'rw');
 has re_esc      => (is => 'rw');
 has fc          => (is => 'rw');
 
+has bps         => (is => 'rw');
+has bp          => (is => 'rw');
+
 sub m_punct     { (1 << 0) }
 sub m_zwsp      { (1 << 1) }
 sub m_wdsp      { (1 << 2) }
@@ -44,7 +47,6 @@ sub m_nrsp      { (1 << 4) }
 sub m_cr        { (1 << 5) }
 sub m_suspend   { (1 << 6) }
 
-has insbp       => (is => 'rw');
 has re_suspend  => (is => 'rw');
 has re_restart  => (is => 'rw');
 
@@ -162,6 +164,8 @@ sub init {
 .
 .ds pp:c0
 .ds pp:c1 \\c
+.ds pp:bp0
+.ds pp:bp1 \:
 END
   }
 
@@ -176,6 +180,12 @@ END
 
   $self->cr("\\*[pp:cr ]")       unless defined $self->cr;
   $self->eC("\\*[pp:c\\n(.u]\\\"") unless defined $self->eC;
+
+  my %bps = (
+    qr/https?:\/\/[\w!\?\/\+\-_~=;\.,\*&@#\$%\(\)'\[\]]+/a => qr/[\/]/,
+  );
+  $self->bps(\%bps)              unless defined $self->bps;
+  $self->bp("\\*[pp:bp\\n(.u]")  unless defined $self->bp;
 
   unless (defined $self->re_spc) {
     # re_spc handles escapes that match re_esc, so it's easy.
@@ -218,8 +228,6 @@ END
       );
   }
 
-  $self->insbp(3) unless defined $self->insbp;
-
 =begin comment
 
   # suspend/resume (experimental) for verbatim blocks
@@ -257,7 +265,7 @@ END
     eval sprintf 'sub %s { "\\x{%X}" }', $_sp, ord $c;
   }
 
-  for my $e (qw/ eC /) {
+  for my $e (qw/ eC bp /) {
     my $c = $self->pua_char($self->$e, \&InESC);
     eval sprintf 'sub _%s { "\\x{%X}" }', $e, ord $c;
   }
@@ -316,6 +324,23 @@ sub prepro {
       s/${delim}.*${delim}/$self->pua_char($&, \&InFCD)/e;
     }
 
+    # wrap long words that cannot be hyphenated.
+    my $bp = $self->_bp;
+    my $bps = $self->bps;
+    if ($bp && $bps && ref($bps)) {
+      while (my ($regex, $sep) = each %$bps) {
+        s{$regex}{
+          my @a = split /($sep+)/, $&;
+          my @b;
+          while (@a >= 2) {
+            my ($v, $s) = splice @a, 0, 2;
+            push @b, $v, $s, $bp;
+          }
+          join '', @b, @a;
+        }eg;
+      }
+    }
+
     if ($m & m_zwsp) {
       s{\p{InJapanese}{2,}|[\p{InSVS}\p{InIVS}]\p{InJapanese}}{
         join $self->_zwsp(), split //, $&;
@@ -354,19 +379,10 @@ sub prepro {
     }
 
     # remove \p{InPSPC} in quotes
-    s/([\`\'\"])\p{InPSPC}+(.*?)\p{InPSPC}+([\'\"])/do {
-      $1.$2.$3;
-    }/eg;
+    s/([\`\'\"])\p{InPSPC}+(.*?)\p{InPSPC}+([\'\"])/$1$2$3/g;
 
-    # insert zwsp as break point after \p{InInsep} characters
-    if ($self->insbp) {
-      my $bp = $m & m_zwsp ? $self->_zwsp : $self->pua_char("\\:", \&InESC);
-      s/\p{InPSPC}*(\p{InInsep}+)\p{InPSPC}*/$1$bp/g;
-      s/([^\p{InUSPC}\p{InInsep}]*)(\p{InInsep}+)[$bp]/
-        $1 && length($1) >= $self->insbp ? $& :
-        $1 ? $1.$2 : $2
-        /eg;
-    }
+    # remove \p{InPSPC} around \p{InInsep}
+    s/\p{InPSPC}*(\p{InInsep}+)\p{InPSPC}*/$1/g;
 
     if ($m & m_punct) {
       # 3.1.2

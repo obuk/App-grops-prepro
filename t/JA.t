@@ -30,6 +30,7 @@ my $hemsp = "\\[half-em-space]";
 my $wdsp = "\\[word-space]";
 my $nrsp = "\\[number-space]";
 my $eC = "\\c:dnl\\\"";
+my $bp = "\\:";
 
 sub pp0 {
   my $s = shift;
@@ -40,6 +41,7 @@ sub pp0 {
     nrsp => $nrsp,
     hemsp => $hemsp,
     eC => $eC,
+    bp => $bp,
     @_,
   );
   trap {
@@ -71,7 +73,8 @@ is pp1("YY/MM/DD"), preconv("YY/MM/DD"), "is1 w/w/w";
 is pp1("年/月/日"), preconv("年/月/日"), "is2 j/j/j";
 is pp1("09/12/34"), preconv("09/12/34"), "is3 n/n/n";
 is pp1("/dir/1/、/dir/2/"), preconv("/dir/1/、$hemsp/dir/2/"), "is4 hold hemsp after comma";
-is pp1("http://dir", zwsp => $zwsp), preconv("http://${zwsp}dir"), "is5 http://dir";
+is pp1("http://dir"), preconv("http://${bp}dir"), "is5 http://dir";
+
 is pp1("/<RETURN>", zwsp => $zwsp), preconv("/<RETURN>"), "is6 /<RETURN>";
 is pp1("\\&/<RETURN>", zwsp => $zwsp), preconv("\\&/<RETURN>"), "is7 /<RETURN>";
 
@@ -84,8 +87,10 @@ is pp1("q2 \"太朗\" ja"), preconv("q2 \"太朗\" ja"), "q2 \"太朗\" ja";
 is pp1("q3 `太朗' ja"), preconv("q3 `太朗' ja"), "q3 `太朗' ja";
 
 # escape [.'] with \& to prevent text line become control line
-is pp1(" '/' ", zwsp => $zwsp, insbp => 1), preconv(" '/${zwsp}\\&' "), "e1 '/\\&' ";
-is pp1(" '/' ", zwsp => $zwsp, insbp => 2), preconv(" '/' "), "e2 '/' ";
+is pp1(" '/' ", zwsp => $zwsp), preconv(" '/' "), "e1 '/' ";
+is pp1(" '日本語' ", zwsp => $zwsp), preconv(" '日${zwsp}本${zwsp}語' "), "e2 '日本語' ";
+is pp1(" 日'本'語 ", zwsp => $zwsp), preconv(" 日${wdsp}\\&'本'${wdsp}語 "), "e3 日'本'語 ";
+is pp1(" 日\\~'本' 語 ", zwsp => $zwsp), preconv(" 日\\~'本' 語 "), "e4 日\\~'本' 語 ";
 
 # number (\p{InNUM}) following word (\p{InWestern}) is part of word
 is pp1("はperl5で"), preconv("は${wdsp}perl5${wdsp}で"), "n1 wdsp";

@@ -18,7 +18,6 @@ and add prepro line to your devps/DESC.
 
 =cut
 
-use lib './lib';
 use App::grops::prepro;
 #exit(App::grops::prepro->run({lang => "ja"}));
 exit(App::grops::prepro->run);

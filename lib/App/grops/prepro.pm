@@ -172,8 +172,13 @@ sub process {
   GetOptions((map +($_ => sub { $opt{$_[0]}++ }), qw/a b c i v z C E R U/),
              (map +("$_=s@" => sub { $opt{$_[0]}{$_[1]}++ }), qw/w W d f m n o r T F I M/));
 
+  # Extract the country code contained in the -d and -m options
+  # specified on the command line to invoke the language-dependent
+  # preprocessing module.
+
   unless (defined $self->lang) {
-    for (keys %{$opt{m}}) {
+    my @lang = map { /^locale=(([^._]*)(_[^.]*)?)(?:[.](.*))?/ ? ($2, $3 ? $1 : ()) : () } keys %{$opt{d}};
+    for (@lang, keys %{$opt{m}}) {
       my $lang_class = join '::', ref $self, uc($_);
       if (do { eval "use $lang_class"; !$@ }) {
         local @ARGV = (@prepro, @troff);
@@ -277,6 +282,11 @@ sub pua_char {
       $self->pua->{$cs} = { free => $free, start => $free, end => $end };
     }
     $token =~ s{\p{InPUA}}{$self->pua->{$&}}eg;
+
+    # escape [.'] with \& to prevent $token at the begining of line
+    # become control line
+    my $req = $self->re_req;
+    $token =~ s{^$req}{\\&$&};
     unless (defined $self->pua->{token}{$token}) {
       if ($self->pua->{$cs}{free} > $self->pua->{$cs}{end}) {
         die "can't allocate pua($token, ",

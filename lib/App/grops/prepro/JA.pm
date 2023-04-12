@@ -220,7 +220,9 @@ END
       qr/ (?&pre)? (?&num) (?&post)?
           (?(DEFINE)
             (?<pre> \p{InPrefixedAbbreviations}+ )
-            (?<num> \d+ (?: (?:[.,\/]\p{InUSPC}?) \d+ )* )
+            #(?<num> \d+ (?: (?:[.,\/]\p{InUSPC}?) \d+ )* )
+            (?<sep> (?:[.,\/]\p{InUSPC}?) )
+            (?<num> \d+ (?: (?&sep) \d+ )* | (?: (?&sep) \d+ )+ )
             (?<post> (?: \p{InPostfixedAbbreviations} | \p{InUnitSymbolsSimple} )+
             | \p{InUSPC}* [(\[] [^\)\]]+ [)\]] )
           )

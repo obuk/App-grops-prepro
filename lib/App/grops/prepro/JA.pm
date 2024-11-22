@@ -3,7 +3,7 @@ use 5.008001;
 use strict;
 use warnings;
 
-our $VERSION = "0.11";
+our $VERSION = "0.12";
 
 use feature qw/say/;
 use parent 'App::grops::prepro';
@@ -74,8 +74,8 @@ sub init {
 
   unless (defined $self->prologue()) {
     $self->prologue(<<'END');
-.nr pp:debug 0
-.ds pp:color orange
+.if !rpp:debug .nr pp:debug 0
+.if !dpp:color .ds pp:color orange
 .if \n[pp:spacewidth]=0 .nr pp:spacewidth \w'\f(TR \fP'
 .
 .de pp:cr
@@ -87,6 +87,20 @@ sub init {
 ..
 .de pp:sp
 \c
+.  if \\n[an*is-in-example] .return\"ok
+.  if \\n[mE] .return\"ok
+.  if '\\n[.fn]'\\*[mC]' .return
+.  if '\\n[.fn]'CR' .return\"ok
+.  if '\\n[.fn]'CW' .return
+.  if '\\n[.fam]'C' .return\"ok
+.  if '\\n[.fam]'CW' .return
+.  ds pp:sp*fn \\n[.fn]
+.  substring pp:sp*fn 0 1
+.  if '\\*[pp:sp*fn]'CR' .return\"ok
+.  if '\\*[pp:sp*fn]'CW' .return
+.  substring pp:sp*fn 0 0
+.  if '\\*[pp:sp*fn]'C' .return\"ok
+.
 .  nr \\$0.ss  \\n[.ss]
 .  nr \\$0.sss \\n[.sss]
 .  ss
@@ -113,12 +127,12 @@ sub init {
 .  ss
 .  ss \\n[\\$0.ss] \\n[\\$0.sss]
 ..
-.nr pp:emsp-width  (\n[.ss] * 400 / 100)
-.nr pp:hemsp-width (\n[.ss] * 200 / 100)
-.nr pp:qemsp-width (\n[.ss] * 100 / 100)
-.nr pp:nrsp-width  (\n[.ss] *  25 / 100)
-.nr pp:wdsp-width  (\n[.ss])
-.nr pp:zwsp-width  0
+.if !r pp:emsp-width  .nr pp:emsp-width  (\n[.ss] * 400 / 100)
+.if !r pp:hemsp-width .nr pp:hemsp-width (\n[.ss] * 200 / 100)
+.if !r pp:qemsp-width .nr pp:qemsp-width (\n[.ss] * 100 / 100)
+.if !r pp:nrsp-width  .nr pp:nrsp-width  (\n[.ss] *  25 / 100)
+.if !r pp:wdsp-width  .nr pp:wdsp-width  (\n[.ss])
+.if !r pp:zwsp-width  .nr pp:zwsp-width  0
 .
 .als pp:emsp  pp:sp
 .als pp:hemsp pp:sp
@@ -129,11 +143,19 @@ sub init {
 .
 .de pp:bs
 \c
-.  if '\\n[.fam]'C' .return
-.  if '\\n[.fn]'CR' .return
-.  if '\\n[.fn]'CI' .return
-.  if '\\n[.fn]'CB' .return
-.  if '\\n[.fn]'CBI' .return
+.  if \\n[an*is-in-example] .return\"ok
+.  if \\n[mE] .return\"ok
+.  if '\\n[.fn]'\\*[mC]' .return
+.  if '\\n[.fn]'CR' .return\"ok
+.  if '\\n[.fn]'CW' .return
+.  if '\\n[.fam]'C' .return\"ok
+.  if '\\n[.fam]'CW' .return
+.  ds pp:sp*bs \\n[.fn]
+.  substring pp:sp*bs 0 1
+.  if '\\*[pp:sp*bs]'CR' .return\"ok
+.  if '\\*[pp:sp*bs]'CW' .return
+.  substring pp:sp*bs 0 0
+.  if '\\*[pp:sp*bs]'C' .return\"ok
 .
 .  ie \\n[.$] .nr \\$0-w \\$*
 .  el         .nr \\$0-w \\n[\\$0-width]
@@ -247,6 +269,7 @@ END
 
   $self->SUPER::init;
 
+  no warnings 'redefine';
   for (qw/ IsEmSp IsHEmSp IsQEmSp IsWdSp IsNrSp IsZwSp /) {
     /^Is(.*)/;
     my $sp = lc($1);
@@ -286,8 +309,14 @@ sub prepro {
 
   if ($mode) {
     if (my ($e) = /^$req\s*(\p{InESC})/) {
-      if ($self->pua->{$e} =~ /$mode(?:\s+(\d+))?/) {
-        $self->mode($1);
+      if ($self->pua->{$e} =~ /$mode(?:\s+([+-]\s*)?(\d+))?/) {
+        if (defined $1 && $1 eq '+') {
+	  $self->mode($self->mode | $2);
+	} elsif (defined $1 && $1 eq '-') {
+	  $self->mode($self->mode & ~($2 + 0));
+	} else {
+	  $self->mode($2);
+	}
       }
     }
   }
@@ -388,7 +417,6 @@ sub prepro {
 
     if ($m & m_punct) {
       # 3.1.2
-
       s{(\p{InPSPC}?)(\p{InStartingJ})}{
         join '',
           (defined $1 ? $1.($self->sp2bs($1) // '') : ''), $self->_hemsp(),
@@ -423,6 +451,8 @@ sub prepro {
           (defined $2 ? $2.($self->sp2bs($2) // '') : '');
       }eg;
     }
+
+    s/(\p{InPSPC}\p{InPBSP}?)+\n/$1$ec\n/g; # xxxxx
 
     # to prefer input, remove \p{InPSPC} adjacent to \p{InUSPC}.
     s/(\p{InPSPC}\p{InPBSP}?)+(\p{InUSPC})/$2/g;
@@ -488,6 +518,10 @@ sub gets {
       if (!($m & m_cr) && /^\p{InJapaneseCharacters}/) {
         $line .= $ec . "\n" . $_;
         $_ = $line;
+      } elsif (0 && !/^$req/ && !($m & m_cr) && /./) {
+        $line .= $ec if /^\p{InJapaneseCharacters}/;
+        $line .= "\n" . $_;
+        $_ = $line;
       } else {
         unshift @{$self->{unget}}, $_;
         $_ = $line;
@@ -536,16 +570,20 @@ sub getline {
         $self->pua_char($e, \&InSPC);
       } elsif ($e =~ /^\\\[u([0-9A-F_]+)\]/) {
         my @u = map { pack "U", hex } split '_', $1;
-        my $vs;
-        if ($u[-1] =~ /[\p{InSVS}\p{InIVS}]/) {
-          $vs = pop @u;
+        if ($u[-1]  =~ /[\x{0300}-\x{036F}]/) {
+          $self->pua_char($e, \&InESC)
+        } else {
+          my $vs;
+          if ($u[-1] =~ /[\p{InSVS}\p{InIVS}]/) {
+            $vs = pop @u;
+          }
+          my $u = join '', @u;
+          if (__PACKAGE__->can('NFC')) {
+            $u = NFC($u);
+          }
+          $u .= $vs if $vs;
+          $u;
         }
-        my $u = join '', @u;
-        if (__PACKAGE__->can('NFC')) {
-          $u = NFC($u);
-        }
-        $u .= $vs if $vs;
-        $u;
       } else {
         $self->pua_char($e, \&InESC)
       }

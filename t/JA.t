@@ -4,7 +4,8 @@ use strict;
 use warnings;
 use utf8;
 use Test::More;
-use Test::Trap;
+#use Test::Trap;
+use Capture::Tiny qw/capture/;
 use File::Temp;
 
 my $builder = Test::More->builder;
@@ -44,14 +45,14 @@ sub pp0 {
     bp => $bp,
     @_,
   );
-  trap {
+  my ($stdout, $stderr, $exit) = capture {
     my $in = File::Temp->new(UNLINK => 1);
     print $in preconv($s);
     $in->seek(0, 0);
     local *ARGV = $in;
     App::grops::prepro::JA->run(\%opts);
   };
-  chomp(my $out = $trap->stdout);
+  chomp(my $out = $stdout);
   $out;
 }
 

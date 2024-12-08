@@ -3,7 +3,7 @@ use 5.008001;
 use strict;
 use warnings;
 
-our $VERSION = "0.12";
+our $VERSION = "0.13";
 
 use feature qw/say/;
 use parent 'App::grops::prepro';
@@ -14,7 +14,6 @@ use Class::Accessor 'antlers';
 
 sub InPUA       { "F0000 FFFFF" }
 sub InPSPC      { "F0000 F000F" } # <-> InUSPC
-sub InPBSP      { "F0010 F001F" }
 sub InSPC       { "F0200 F0FFF" }
 sub InESC       { "F1000 F1FFF" }
 sub InFCD       { "F2000 F2FFF" }
@@ -26,8 +25,6 @@ has qemsp       => (is => 'rw');
 has zwsp        => (is => 'rw');
 has nrsp        => (is => 'rw');
 has wdsp        => (is => 'rw');
-has hembs       => (is => 'rw');
-has qembs       => (is => 'rw');
 has cr          => (is => 'rw');
 has eC          => (is => 'rw');
 
@@ -141,49 +138,6 @@ sub init {
 .als pp:wdsp  pp:sp
 .als pp:zwsp  pp:sp
 .
-.de pp:bs
-\c
-.  if \\n[an*is-in-example] .return\"ok
-.  if \\n[mE] .return\"ok
-.  if '\\n[.fn]'\\*[mC]' .return
-.  if '\\n[.fn]'CR' .return\"ok
-.  if '\\n[.fn]'CW' .return
-.  if '\\n[.fam]'C' .return\"ok
-.  if '\\n[.fam]'CW' .return
-.  ds pp:sp*bs \\n[.fn]
-.  substring pp:sp*bs 0 1
-.  if '\\*[pp:sp*bs]'CR' .return\"ok
-.  if '\\*[pp:sp*bs]'CW' .return
-.  substring pp:sp*bs 0 0
-.  if '\\*[pp:sp*bs]'C' .return\"ok
-.
-.  ie \\n[.$] .nr \\$0-w \\$*
-.  el         .nr \\$0-w \\n[\\$0-width]
-.  if (\\n[pp:debug]>=2) \{\
-.    nr \\$0-w1 0.05m
-.    nr \\$0-w2 (\\n[\\$0-w] - (\\n[\\$0-w1]*2))u
-.    if \\n[\\$0-w2]>0 \{\
-.      nop \m[\\*[pp:color]]\Z'\
-\h'-\\n[\\$0-w1]u'\
-\v'-0.3m'\
-\D'l 0 -0.2m'\
-\v'+0.1m'\
-\D'l -\\n[\\$0-w2]u 0'\
-\D'l +0.15m -0.1m'\
-\v'+0.2m'\
-\D'l -0.15m -0.1m'\
-'\m[]\c
-.      \}
-.    \}
-.  \}
-.  nop \h'-\\n[\\$0-w]u'\c
-..
-.nr pp:hembs-width .5m
-.nr pp:qembs-width .25m
-.
-.als pp:hembs pp:bs
-.als pp:qembs pp:bs
-.
 .ds pp:c0
 .ds pp:c1 \\c
 .ds pp:bp0
@@ -197,8 +151,6 @@ END
   $self->wdsp("\\*[pp:wdsp ]")   unless defined $self->wdsp;
   $self->nrsp("\\*[pp:nrsp ]")   unless defined $self->nrsp;
   $self->zwsp("\\*[pp:zwsp ]")   unless defined $self->zwsp;
-  $self->hembs("\\*[pp:hembs ]") unless defined $self->hembs;
-  $self->qembs("\\*[pp:qembs ]") unless defined $self->qembs;
 
   $self->cr("\\*[pp:cr ]")       unless defined $self->cr;
   $self->eC("\\*[pp:c\\n(.u]\\\"") unless defined $self->eC;
@@ -275,16 +227,6 @@ END
     my $sp = lc($1);
     my $_sp = "_$sp";
     my $c = $self->pua_char($_, \&InPSPC);
-    $self->pua_char($self->$sp, $c);
-    eval sprintf 'sub %s { "%X" }', $_, ord $c;
-    eval sprintf 'sub %s { "\\x{%X}" }', $_sp, ord $c;
-  }
-
-  for (qw/ IsHEmBs IsQEmBs /) {
-    /^Is(.*)/;
-    my $sp = lc($1);
-    my $_sp = "_$sp";
-    my $c = $self->pua_char($_, \&InPBSP);
     $self->pua_char($self->$sp, $c);
     eval sprintf 'sub %s { "%X" }', $_, ord $c;
     eval sprintf 'sub %s { "\\x{%X}" }', $_sp, ord $c;
@@ -417,74 +359,43 @@ sub prepro {
 
     if ($m & m_punct) {
       # 3.1.2
-      s{(\p{InPSPC}?)(\p{InStartingJ})}{
-        join '',
-          (defined $1 ? $1.($self->sp2bs($1) // '') : ''), $self->_hemsp(),
-          $2;
-      }eg;
-      s{(\p{InEndingJ})(\p{InPSPC}?)}{
-        join '',
-          $1,
-          (defined $2 ? $2.($self->sp2bs($2) // '') : ''), $self->_hemsp();
-      }eg;
-      s{(\p{InPSPC}?)(\p{InMiddleDotsJ}+)(\p{InPSPC}?)}{
-        join '',
-          (defined $1 ? $1.($self->sp2bs($1) // '') : ''), $self->_qemsp(),
-          $2,
-          (defined $3 ? $3.($self->sp2bs($3) // '') : ''), $self->_qemsp();
-      }eg;
-
+      s/\p{InPSPC}*(\p{InStartingJ})/
+        $self->_hemsp().$1/eg;
+      s/(\p{InEndingJ})\p{InPSPC}*/
+        $1.$self->_hemsp()/eg;
+      s/\p{InPSPC}*(\p{InMiddleDotsJ}+)\p{InPSPC}*/
+        $self->_qemsp().$1.$self->_qemsp()/eg;
       s/(\p{InJapanese}[\p{InSVS}\p{InIVS}]?)(\p{InStartingW})/
         $1.$self->_wdsp().$2/eg;
       s/(\p{InEndingW})(\p{InJapanese})/
         $1.$self->_wdsp().$2/eg;
 
       # 3.1.4
-      s{(\p{InPSPC})(\p{InEnding})}{
-        join '',
-          (defined $1 ? $1.($self->sp2bs($1) // '') : ''),
-          $2;
-      }eg;
-      s{(\p{InStarting})(\p{InPSPC})}{
-        join '',
-          $1,
-          (defined $2 ? $2.($self->sp2bs($2) // '') : '');
-      }eg;
+      s/\p{InPSPC}+(\p{InEnding})/$1/g;
+      s/(\p{InStarting})\p{InPSPC}+/$1/g;
     }
 
-    s/(\p{InPSPC}\p{InPBSP}?)+\n/$1$ec\n/g; # xxxxx
+    s/(\p{InPSPC}+)\n/$1$ec\n/g;
 
     # to prefer input, remove \p{InPSPC} adjacent to \p{InUSPC}.
-    s/(\p{InPSPC}\p{InPBSP}?)+(\p{InUSPC})/$2/g;
-    s/(\p{InUSPC})(\p{InPSPC}\p{InPBSP}?)+/$1/g;
+    s/\p{InPSPC}+(\p{InUSPC})/$1/g;
+    s/(\p{InUSPC})\p{InPSPC}+/$1/g;
 
     # remove \p{InPSPC}s at BOL and EOL.
-    s/^(\p{InPSPC}\p{InPBSP}?)+//s;
-    s/(\p{InPSPC}\p{InPBSP}?)+$//s;
+    s/^\p{InPSPC}+//s;
+    s/\p{InPSPC}+$//s;
 
-    # reduce (\p{InPSPC}\p{InPBSP}?)* acrossing lines
-    s/(\p{InPSPC}\p{InPBSP}?$dnl\n)(\p{InPSPC}\p{InPBSP}?)/$1/g;
+    # reduce \p{InPSPC}$dnl\n\p{InPSPC}+ acrossing lines
+    s/(\p{InPSPC}$dnl\n)\p{InPSPC}+/$1/g;
 
     # escape [.'] with \& to prevent text line become control line
-    s/(\p{InPSPC}\p{InPBSP}?)($req)/$1\\&$2/g;
+    s/(\p{InPSPC})($req)/$1\\&$2/g;
 
     if ($m & m_cr) {
       s/$/$self->cr/meg;
     }
 
   }
-}
-
-
-sub sp2bs {
-  my ($self, $sp) = @_;
-  if ($sp) {
-    return $self->_hembs if $sp eq $self->_hemsp;
-    return $self->_qembs if $sp eq $self->_qemsp;
-    return ''            if $sp eq $self->_zwsp;
-    die sprintf "sp2bs: unknown space u%X\n", ord $sp;
-  }
-  undef;
 }
 
 
